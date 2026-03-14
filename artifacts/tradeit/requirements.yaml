@@ -1,0 +1,14 @@
+packages:
+  "framer-motion": "For premium page transitions, card flips, and micro-interactions"
+  "clsx": "Utility for conditionally joining classNames"
+  "tailwind-merge": "Utility to safely merge Tailwind CSS classes"
+  "zustand": "For clean local storage state management of the trading portfolio"
+
+images:
+  - path: "artifacts/tradeit/public/images/logo.png"
+    description: "Minimalist, Apple-style app icon logo for a finance app called TradeIt. White background with a clean, simple, friendly green leaf or upward trending arrow graphic that looks professional but unintimidating."
+    aspect_ratio: "1:1"
+
+notes:
+  - App relies on in-memory/localStorage state for everything except stock quotes and trending stocks
+  - Using generated Orval hooks from @workspace/api-client-react

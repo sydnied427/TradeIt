@@ -1,15 +1,16 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: TradeIt API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: stocks
+    description: Stock market data
 paths:
   /healthz:
     get:
@@ -24,6 +25,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /stocks/quote:
+    get:
+      operationId: getStockQuote
+      tags: [stocks]
+      summary: Get stock quote
+      description: Returns current price and basic info for a stock ticker
+      parameters:
+        - name: ticker
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Stock quote data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockQuote"
+        "404":
+          description: Stock not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Error fetching data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /stocks/trending:
+    get:
+      operationId: getTrendingStocks
+      tags: [stocks]
+      summary: Get trending stocks
+      description: Returns a list of currently trending stocks
+      responses:
+        "200":
+          description: List of trending stocks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrendingStocksResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +78,67 @@ components:
           type: string
       required:
         - status
-
+    StockQuote:
+      type: object
+      properties:
+        ticker:
+          type: string
+        companyName:
+          type: string
+        price:
+          type: number
+        change:
+          type: number
+        changePercent:
+          type: number
+        marketCap:
+          type: string
+        volume:
+          type: string
+        description:
+          type: string
+        sector:
+          type: string
+        high52w:
+          type: number
+        low52w:
+          type: number
+      required:
+        - ticker
+        - companyName
+        - price
+        - change
+        - changePercent
+        - description
+    TrendingStock:
+      type: object
+      properties:
+        ticker:
+          type: string
+        companyName:
+          type: string
+        price:
+          type: number
+        changePercent:
+          type: number
+      required:
+        - ticker
+        - companyName
+        - price
+        - changePercent
+    TrendingStocksResponse:
+      type: object
+      properties:
+        stocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrendingStock"
+      required:
+        - stocks
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
