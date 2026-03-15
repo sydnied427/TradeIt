@@ -312,11 +312,11 @@ export default function Trading() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Ticker or company name..."
-                className="block w-full pl-10 pr-20 py-3 border-2 border-border rounded-xl bg-secondary/20 focus:bg-background focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                className="block w-full pl-10 pr-4 sm:pr-20 py-3 border-2 border-border rounded-xl bg-secondary/20 focus:bg-background focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all outline-none"
               />
               <button
                 type="submit"
-                className="absolute inset-y-2 right-2 px-3 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors"
+                className="hidden sm:block absolute inset-y-2 right-2 px-3 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors"
               >
                 Look up
               </button>
