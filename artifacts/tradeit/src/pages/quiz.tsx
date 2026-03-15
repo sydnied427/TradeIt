@@ -17,16 +17,22 @@ export default function Quiz() {
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
 
-  // Pick a random unseen question for current level
+  // Dedicated counter to trigger question advancement — decoupled from score
+  const [questionKey, setQuestionKey] = useState(0);
+
+  // Pick a random unseen question for current level.
+  // Depends on questionKey (explicit advance) and currentLevel, NOT on score,
+  // so that answering correctly doesn't immediately swap the question while
+  // feedback is still visible.
   const currentQuestion = useMemo(() => {
     let available = quizData.filter(q => q.level === currentLevel && !seenIds.has(q.id));
     if (available.length === 0) {
       // If we've seen all questions in this level, reset seen for this level
       available = quizData.filter(q => q.level === currentLevel);
-      setSeenIds(new Set([...seenIds].filter(id => quizData.find(q => q.id === id)?.level !== currentLevel)));
+      setSeenIds(prev => new Set([...prev].filter(id => quizData.find(q => q.id === id)?.level !== currentLevel)));
     }
     return available[Math.floor(Math.random() * available.length)];
-  }, [currentLevel, seenIds, score]); // regenerate when score changes (moves to next question)
+  }, [currentLevel, questionKey]); // intentionally omit seenIds to avoid re-pick on every add
 
   const handleAnswer = (index: number) => {
     if (feedback) return; // Prevent double clicking
@@ -42,17 +48,20 @@ export default function Quiz() {
       const newStreak = streak + 1;
       
       if (newStreak >= 3 && currentLevel < 3) {
-        // Level up!
+        // Level up: clear feedback first, then change level (which picks new question)
         setTimeout(() => {
-          setCurrentLevel(c => (c + 1) as 1 | 2 | 3);
-          setStreak(0);
-          setWrongInLevel(0);
           setFeedback(null);
           setSelectedOption(null);
+          // Advance question after feedback has been cleared
+          requestAnimationFrame(() => {
+            setCurrentLevel(c => (c + 1) as 1 | 2 | 3);
+            setStreak(0);
+            setWrongInLevel(0);
+          });
         }, 1500);
       } else {
         setStreak(newStreak);
-        setTimeout(nextQuestion, 1500);
+        setTimeout(advanceQuestion, 1500);
       }
     } else {
       setFeedback('incorrect');
@@ -60,23 +69,30 @@ export default function Quiz() {
       const newWrong = wrongInLevel + 1;
       
       if (newWrong >= 2 && currentLevel > 1) {
-        // Drop down a level
+        // Drop down a level: clear feedback first, then change level
         setTimeout(() => {
-          setCurrentLevel(c => (c - 1) as 1 | 2 | 3);
-          setWrongInLevel(0);
           setFeedback(null);
           setSelectedOption(null);
+          requestAnimationFrame(() => {
+            setCurrentLevel(c => (c - 1) as 1 | 2 | 3);
+            setWrongInLevel(0);
+          });
         }, 3000);
       } else {
         setWrongInLevel(newWrong);
-        setTimeout(nextQuestion, 3000); // Give them time to read the hint
+        setTimeout(advanceQuestion, 3000);
       }
     }
   };
 
-  const nextQuestion = () => {
+  // Clear feedback/selection FIRST, then advance the question key in the next
+  // animation frame so React flushes the cleared state before picking a new question.
+  const advanceQuestion = () => {
     setFeedback(null);
     setSelectedOption(null);
+    requestAnimationFrame(() => {
+      setQuestionKey(k => k + 1);
+    });
   };
 
   const levelTitles = {
