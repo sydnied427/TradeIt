@@ -1,34 +1,60 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Layout } from "@/components/layout";
 import { useGetStockQuote, useGetTrendingStocks } from "@workspace/api-client-react";
-import { Search as SearchIcon, TrendingUp, TrendingDown, Building2, AlertCircle } from "lucide-react";
+import { Search as SearchIcon, TrendingUp, TrendingDown, Building2, AlertCircle, ArrowLeft } from "lucide-react";
 import { formatMoney, formatPercent, cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { resolveToTicker } from "@/data/companyMap";
 
 export default function Search() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedTerm, setDebouncedTerm] = useState("");
+  const [activeTicker, setActiveTicker] = useState("");
+  const isMobileRef = useRef(false);
 
-  // We use a small delay manually or just search on enter to save API calls
+  // Detect mobile via CSS media query
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    isMobileRef.current = mq.matches;
+    const handler = (e: MediaQueryListEvent) => { isMobileRef.current = e.matches; };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  // Mobile: auto-search after 600ms of inactivity
+  useEffect(() => {
+    if (!isMobileRef.current || !searchTerm.trim()) return;
+    const timer = setTimeout(() => {
+      setActiveTicker(resolveToTicker(searchTerm));
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
-      setDebouncedTerm(searchTerm.trim().toUpperCase());
+      setActiveTicker(resolveToTicker(searchTerm));
     }
+  };
+
+  const handleBack = () => {
+    setActiveTicker("");
+    setSearchTerm("");
   };
 
   const { data: trendingData, isLoading: trendingLoading } = useGetTrendingStocks();
   const { data: searchData, isLoading: searchLoading, error: searchError } = useGetStockQuote(
-    { ticker: debouncedTerm },
-    { query: { enabled: !!debouncedTerm, retry: false } }
+    { ticker: activeTicker },
+    { query: { enabled: !!activeTicker, retry: false } }
   );
+
+  const showResult = !!activeTicker;
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto space-y-12">
-        
+      <div className="max-w-4xl mx-auto space-y-10">
+
         {/* Search Header */}
-        <div className="text-center space-y-6">
+        <div className="text-center space-y-5">
           <h1 className="text-3xl sm:text-4xl font-display font-bold">Search Companies</h1>
           <form onSubmit={handleSearch} className="relative max-w-xl mx-auto">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -39,20 +65,30 @@ export default function Search() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Enter ticker (e.g. AAPL) or company name..."
-              className="block w-full pl-12 pr-4 py-4 sm:text-lg border-2 border-border rounded-2xl bg-card focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+              className="block w-full pl-12 pr-4 sm:pr-28 py-4 sm:text-lg border-2 border-border rounded-2xl bg-card focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all outline-none"
             />
-            <button 
+            {/* Desktop only: Search button */}
+            <button
               type="submit"
-              className="absolute inset-y-2 right-2 px-6 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors"
+              className="hidden sm:block absolute inset-y-2 right-2 px-6 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors"
             >
               Search
             </button>
           </form>
         </div>
 
-        {/* Search Results */}
-        {debouncedTerm && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {/* Search Results (shown when there's an active search) */}
+        {showResult && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+            {/* Back button */}
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-2 mb-5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+              Back to trending
+            </button>
+
             {searchLoading && (
               <div className="p-12 text-center text-muted-foreground flex flex-col items-center">
                 <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
@@ -60,11 +96,11 @@ export default function Search() {
               </div>
             )}
 
-            {searchError && (
+            {searchError && !searchLoading && (
               <div className="p-8 bg-destructive/10 text-destructive rounded-2xl border border-destructive/20 flex flex-col items-center text-center">
                 <AlertCircle className="w-12 h-12 mb-3 opacity-80" />
                 <h3 className="text-lg font-bold">We couldn't find that stock.</h3>
-                <p className="opacity-80">Make sure you entered a valid ticker symbol (like MSFT or AMZN).</p>
+                <p className="opacity-80 mt-1">Try a ticker symbol like MSFT or AMZN, or a company name like "Apple".</p>
               </div>
             )}
 
@@ -93,7 +129,7 @@ export default function Search() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="p-6 sm:p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
                   <div className="md:col-span-2 space-y-4">
                     <h3 className="text-xl font-bold flex items-center gap-2">
@@ -103,7 +139,7 @@ export default function Search() {
                       {searchData.description}
                     </p>
                   </div>
-                  
+
                   <div className="space-y-6 bg-secondary/30 p-6 rounded-2xl">
                     <div>
                       <div className="text-sm text-muted-foreground font-medium mb-1">Market Cap</div>
@@ -116,7 +152,7 @@ export default function Search() {
                     <div>
                       <div className="text-sm text-muted-foreground font-medium mb-1">52-Week Range</div>
                       <div className="text-lg font-bold">
-                        {searchData.low52w ? formatMoney(searchData.low52w) : 'N/A'} - {searchData.high52w ? formatMoney(searchData.high52w) : 'N/A'}
+                        {searchData.low52w ? formatMoney(searchData.low52w) : 'N/A'} – {searchData.high52w ? formatMoney(searchData.high52w) : 'N/A'}
                       </div>
                     </div>
                   </div>
@@ -126,57 +162,55 @@ export default function Search() {
           </div>
         )}
 
-        {/* Trending Section */}
-        {!debouncedTerm && (
-          <div className="pt-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <h2 className="text-2xl font-display font-bold">Trending Today</h2>
+        {/* Trending Section — always visible */}
+        <div className={cn("pt-2", showResult && "opacity-60 hover:opacity-100 transition-opacity")}>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
+              <TrendingUp className="w-5 h-5" />
             </div>
-
-            {trendingLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-32 bg-secondary/50 rounded-2xl animate-pulse" />
-                ))}
-              </div>
-            ) : trendingData?.stocks && trendingData.stocks.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {trendingData.stocks.map((stock, i) => (
-                  <motion.button
-                    key={stock.ticker}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    onClick={() => {
-                      setSearchTerm(stock.ticker);
-                      setDebouncedTerm(stock.ticker);
-                    }}
-                    className="bg-card p-5 rounded-2xl border border-border shadow-sm hover:shadow-md hover:border-primary/30 transition-all text-left group"
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="font-bold text-lg">{stock.ticker}</div>
-                      <div className={cn(
-                        "px-2 py-1 rounded-md text-xs font-bold",
-                        stock.changePercent >= 0 ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
-                      )}>
-                        {stock.changePercent >= 0 ? '+' : ''}{formatPercent(stock.changePercent)}
-                      </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground line-clamp-1 mb-2 group-hover:text-foreground transition-colors">{stock.companyName}</div>
-                    <div className="font-display font-extrabold text-xl">{formatMoney(stock.price)}</div>
-                  </motion.button>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center p-8 bg-secondary/50 rounded-2xl text-muted-foreground">
-                Trending data unavailable right now.
-              </div>
-            )}
+            <h2 className="text-2xl font-display font-bold">Trending Today</h2>
           </div>
-        )}
+
+          {trendingLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-32 bg-secondary/50 rounded-2xl animate-pulse" />
+              ))}
+            </div>
+          ) : trendingData?.stocks && trendingData.stocks.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {trendingData.stocks.map((stock, i) => (
+                <motion.button
+                  key={stock.ticker}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  onClick={() => {
+                    setSearchTerm(stock.ticker);
+                    setActiveTicker(stock.ticker);
+                  }}
+                  className="bg-card p-5 rounded-2xl border border-border shadow-sm hover:shadow-md hover:border-primary/30 transition-all text-left group"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="font-bold text-lg">{stock.ticker}</div>
+                    <div className={cn(
+                      "px-2 py-1 rounded-md text-xs font-bold",
+                      stock.changePercent >= 0 ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
+                    )}>
+                      {stock.changePercent >= 0 ? '+' : ''}{formatPercent(stock.changePercent)}
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground line-clamp-1 mb-2 group-hover:text-foreground transition-colors">{stock.companyName}</div>
+                  <div className="font-display font-extrabold text-xl">{formatMoney(stock.price)}</div>
+                </motion.button>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center p-8 bg-secondary/50 rounded-2xl text-muted-foreground">
+              Trending data unavailable right now.
+            </div>
+          )}
+        </div>
 
       </div>
     </Layout>

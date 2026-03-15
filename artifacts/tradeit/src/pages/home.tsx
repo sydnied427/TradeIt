@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 const cards = [
   {
     title: "Jargon Explainer",
-    description: "Wall Street speak, translated for humans. Swipe through flashcards to learn the basics.",
+    description: "Wall Street speak, made simple. Swipe through flashcards to learn the lingo at your own pace.",
     icon: BookOpen,
     href: "/jargon",
     color: "bg-blue-50 text-blue-600 border-blue-100",
